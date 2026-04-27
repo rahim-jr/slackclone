@@ -26,33 +26,28 @@ import { ComposerAction, MemberItem, NavItem } from "@/components/chat-dashboard
 import { getDicebearAvatar } from "@/components/chat-dashboard/dicebear-avatar";
 
 export function ChatDashboard() {
+  const name = "Jhon Smith";
   const accountEmail = "jsmith.mobbin@gmail.com";
   const sidebarAvatarSrc = getDicebearAvatar(accountEmail);
 
   return (
     <main className="min-h-screen bg-[#f6f6f7] p-2 sm:p-3">
-      <div className="mx-auto grid h-[calc(100vh-1rem)] w-full max-w-[1440px] grid-cols-1 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm sm:h-[calc(100vh-1.5rem)] md:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
+      <div className="mx-auto grid h-[calc(100vh-1rem)] w-full max-w-full grid-cols-1 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm sm:h-[calc(100vh-1.5rem)] md:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_280px]">
         <aside className="hidden min-h-0 flex-col border-r border-zinc-200 bg-zinc-50/70 md:flex">
           <div className="flex items-center justify-between px-4 py-3">
-            <p className="text-sm font-medium text-zinc-800">Janes Studio</p>
+            <p className="text-lg font-bold text-zinc-800">Janes Studio</p>
             <button type="button" className="text-zinc-500 hover:text-zinc-700">
               <LuChevronDown className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="px-4 pb-3">
-            <button
-              type="button"
-              className="w-full rounded-lg bg-violet-500 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-violet-600"
-            >
-              Compose
-            </button>
-          </div>
+
 
           <ScrollArea.Root className="min-h-0 flex-1 overflow-hidden">
             <ScrollArea.Viewport className="h-full w-full px-2 pb-3">
               <div className="space-y-1 px-2">
-                <NavItem label="Inbox" count={1} icon={<LuMail className="h-4 w-4" />} />
+                <NavItem label="Unread" count={1} icon={<LuMail className="h-4 w-4" />} />
+                <NavItem label="Threads" icon={<LuUsers className="h-4 w-4" />} />
                 <NavItem label="Drafts" icon={<LuFileText className="h-4 w-4" />} />
               </div>
 
@@ -65,7 +60,7 @@ export function ChatDashboard() {
                 <div className="space-y-1">
                   <NavItem label="jane x threads team" icon={<LuUsers className="h-4 w-4" />} />
                   <NavItem
-                    label="jsmith.mobbin@gmail.com"
+                    label={accountEmail}
                     active
                     icon={<LuSparkles className="h-4 w-4" />}
                   />
@@ -115,7 +110,7 @@ export function ChatDashboard() {
                   JM
                 </Avatar.Fallback>
               </Avatar.Root>
-              <p className="truncate text-sm text-zinc-700">{accountEmail}</p>
+              <p className="truncate text-sm text-zinc-700">{name}</p>
             </div>
             <button type="button" className="text-zinc-400 hover:text-zinc-700">
               <LuSettings2 className="h-4 w-4" />
@@ -126,7 +121,7 @@ export function ChatDashboard() {
         <section className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 items-center justify-between border-b border-zinc-200 px-4 sm:px-6">
             <p className="truncate text-sm font-medium text-zinc-800">
-              jsmith.mobbin@gmail.com
+              {accountEmail}
             </p>
             <div className="flex items-center gap-3 text-zinc-400">
               <button type="button" className="hover:text-zinc-700">
@@ -185,7 +180,7 @@ export function ChatDashboard() {
           <div className="space-y-1">
             <MemberItem name="Jane Smith" detail="Owner" accent="bg-indigo-200" />
             <MemberItem
-              name="jsmith.mobbin@gmail.com"
+              name={accountEmail}
               detail="You"
               accent="bg-violet-200"
             />
