@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Avatar, ScrollArea, Separator } from "radix-ui";
 import {
   LuArrowRight,
@@ -17,41 +18,245 @@ import {
   LuPuzzle,
   LuRefreshCw,
   LuSettings2,
-  LuSparkles,
   LuSquareChevronLeft,
   LuSquareChevronRight,
-  LuUserPlus,
   LuUserRound,
   LuUsers,
   LuX,
   LuZap,
 } from "react-icons/lu";
-import { ComposerAction, MemberItem, NavItem } from "@/components/chat-dashboard";
+import {
+  ComposerAction,
+  MemberItem,
+  NavItem,
+} from "@/components/chat-dashboard";
 import { getDicebearAvatar } from "@/components/chat-dashboard/dicebear-avatar";
 
-export function ChatDashboard() {
-  // Static account/profile data shown in the shell of the dashboard.
-  const name = "Jhon Smith";
-  const accountEmail = "jsmith.mobbin@gmail.com";
-  const sidebarAvatarSrc = getDicebearAvatar(accountEmail);
+type ParticipantId = "jane" | "jhon";
 
-  // Local composer state for the input field and sent message history.
-  const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
+type Participant = {
+  id: ParticipantId;
+  name: string;
+  detail: string;
+  accent: string;
+};
+
+type ChatThread = {
+  id: string;
+  label: string;
+  isGroup: boolean;
+  memberIds: ParticipantId[];
+};
+
+type ChatMessage = {
+  id: string;
+  chatId: string;
+  senderId: ParticipantId;
+  text: string;
+  createdAt: number;
+};
+
+const participants: Record<ParticipantId, Participant> = {
+  jane: {
+    id: "jane",
+    name: "Jane Smith",
+    detail: "Owner",
+    accent: "bg-indigo-200",
+  },
+  jhon: {
+    id: "jhon",
+    name: "Jhon Smith",
+    detail: "You",
+    accent: "bg-violet-200",
+  },
+};
+
+const chatThreads: ChatThread[] = [
+  {
+    id: "chat-group",
+    label: "jane x threads team",
+    isGroup: true,
+    memberIds: ["jane", "jhon"],
+  },
+  {
+    id: "chat-direct",
+    label: "Direct",
+    isGroup: false,
+    memberIds: ["jane", "jhon"],
+  },
+];
+
+const initialMessagesByChatId: Record<string, ChatMessage[]> = {
+  "chat-group": [
+    {
+      id: "seed-group-1",
+      chatId: "chat-group",
+      senderId: "jane",
+      text: "Morning team! Let's test this thread.",
+      createdAt: 1,
+    },
+    {
+      id: "seed-group-2",
+      chatId: "chat-group",
+      senderId: "jhon",
+      text: "Looks good. I can send here.",
+      createdAt: 2,
+    },
+  ],
+  "chat-direct": [
+    {
+      id: "seed-direct-1",
+      chatId: "chat-direct",
+      senderId: "jane",
+      text: "Ping! This direct thread is shared by both of us.",
+      createdAt: 3,
+    },
+    {
+      id: "seed-direct-2",
+      chatId: "chat-direct",
+      senderId: "jhon",
+      text: "Yep, now DM should sync in both tabs.",
+      createdAt: 4,
+    },
+  ],
+};
+
+type SnapshotResponse = {
+  viewerId: ParticipantId;
+  participants: Record<ParticipantId, Participant>;
+  threads: ChatThread[];
+  messagesByChatId: Record<string, ChatMessage[]>;
+  defaultChatId: string;
+};
+
+function getViewerRouteId(viewerParam: string | null): "1" | "2" {
+  return viewerParam === "2" ? "2" : "1";
+}
+
+function getThreadLabel(
+  thread: ChatThread,
+  viewerId: ParticipantId,
+  participantsById: Record<ParticipantId, Participant>,
+): string {
+  if (thread.isGroup) {
+    return thread.label;
+  }
+
+  const otherMemberId = thread.memberIds.find(
+    (memberId) => memberId !== viewerId,
+  );
+  return otherMemberId
+    ? (participantsById[otherMemberId]?.name ?? thread.label)
+    : thread.label;
+}
+
+export function ChatDashboard() {
+  const searchParams = useSearchParams();
+  const viewerRouteId = getViewerRouteId(searchParams.get("viewer"));
+
+  const [participantsState, setParticipantsState] =
+    useState<Record<ParticipantId, Participant>>(participants);
+  const [chatThreadsState, setChatThreadsState] =
+    useState<ChatThread[]>(chatThreads);
+  const [viewerId, setViewerId] = useState<ParticipantId>(
+    viewerRouteId === "2" ? "jane" : "jhon",
+  );
+
+  // Local in-memory thread/message state for UI-only chat simulation.
+  const [activeChatId, setActiveChatId] = useState("chat-direct");
+  const [draftByChatId, setDraftByChatId] = useState<Record<string, string>>({
+    "chat-group": "",
+    "chat-direct": "",
+  });
+  const [messagesByChatId, setMessagesByChatId] = useState<
+    Record<string, ChatMessage[]>
+  >(initialMessagesByChatId);
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  // Push a non-empty message into the chat view, then clear input.
-  const handleSendMessage = () => {
-    const trimmedMessage = messageInput.trim();
+  const account = participantsState[viewerId] ?? participantsState.jhon;
+  const sidebarAvatarSrc = getDicebearAvatar(account.name);
+  const visibleThreads = chatThreadsState;
+  const activeThread =
+    visibleThreads.find((thread) => thread.id === activeChatId) ??
+    visibleThreads[0] ??
+    chatThreadsState[0] ??
+    chatThreads[0];
+  const activeMessages = messagesByChatId[activeThread.id] ?? [];
+  const activeDraft = draftByChatId[activeThread.id] ?? "";
+  const activeMembers = activeThread.memberIds.map(
+    (memberId) => participantsState[memberId],
+  );
+
+  const loadSnapshot = useCallback(async () => {
+    const response = await fetch(`/api/v1/users/${viewerRouteId}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const snapshot = (await response.json()) as SnapshotResponse;
+    setViewerId(snapshot.viewerId);
+    setParticipantsState(snapshot.participants);
+    setChatThreadsState(snapshot.threads);
+    setMessagesByChatId(snapshot.messagesByChatId);
+
+    const visibleThreadIds = snapshot.threads.map((thread) => thread.id);
+    const fallbackThreadId = visibleThreadIds[0] ?? snapshot.defaultChatId;
+
+    setActiveChatId((previousChatId) =>
+      visibleThreadIds.includes(previousChatId)
+        ? previousChatId
+        : fallbackThreadId,
+    );
+  }, [viewerRouteId]);
+
+  useEffect(() => {
+    const initialTimerId = window.setTimeout(() => {
+      void loadSnapshot();
+    }, 0);
+    const timerId = window.setInterval(() => {
+      void loadSnapshot();
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(initialTimerId);
+      window.clearInterval(timerId);
+    };
+  }, [loadSnapshot]);
+
+  // Push a non-empty message into the active thread, then clear that thread draft.
+  const handleSendMessage = async () => {
+    const trimmedMessage = activeDraft.trim();
 
     if (!trimmedMessage) {
       return;
     }
 
-    setMessages((previousMessages) => [...previousMessages, trimmedMessage]);
-    setMessageInput("");
+    setDraftByChatId((previousDraftByChatId) => ({
+      ...previousDraftByChatId,
+      [activeThread.id]: "",
+    }));
+
+    const response = await fetch(`/api/v1/chats/${activeThread.id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        senderId: viewerId,
+        text: trimmedMessage,
+      }),
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    await loadSnapshot();
   };
 
   // Open left/right panels with a horizontal swipe on smaller screens.
@@ -104,7 +309,10 @@ export function ChatDashboard() {
           <div className="flex items-center justify-between px-4 py-3">
             <p className="text-lg font-bold text-zinc-800">Janes Studio</p>
             <div className="flex items-center gap-2">
-              <button type="button" className="text-zinc-500 hover:text-zinc-700">
+              <button
+                type="button"
+                className="text-zinc-500 hover:text-zinc-700"
+              >
                 <LuChevronDown className="h-4 w-4" />
               </button>
               <button
@@ -118,14 +326,22 @@ export function ChatDashboard() {
             </div>
           </div>
 
-
-
           <ScrollArea.Root className="min-h-0 flex-1 overflow-hidden">
             <ScrollArea.Viewport className="h-full w-full px-2 pb-3">
               <div className="space-y-1 px-2">
-                <NavItem label="Unread" count={1} icon={<LuMail className="h-4 w-4" />} />
-                <NavItem label="Threads" icon={<LuUsers className="h-4 w-4" />} />
-                <NavItem label="Drafts" icon={<LuFileText className="h-4 w-4" />} />
+                <NavItem
+                  label="Unread"
+                  count={1}
+                  icon={<LuMail className="h-4 w-4" />}
+                />
+                <NavItem
+                  label="Threads"
+                  icon={<LuUsers className="h-4 w-4" />}
+                />
+                <NavItem
+                  label="Drafts"
+                  icon={<LuFileText className="h-4 w-4" />}
+                />
               </div>
 
               <Separator.Root className="mx-2 my-3 h-px bg-zinc-200" />
@@ -135,14 +351,25 @@ export function ChatDashboard() {
                   Chat
                 </p>
                 <div className="space-y-1">
-                  <NavItem label="jane x threads team" icon={<LuUsers className="h-4 w-4" />} />
-                  <NavItem
-                    label={accountEmail}
-                    active
-                    icon={<LuSparkles className="h-4 w-4" />}
-                  />
-                  <NavItem label="Jane Smith (you)" icon={<LuUserRound className="h-4 w-4" />} />
-                  <NavItem label="Add teammates" icon={<LuUserPlus className="h-4 w-4" />} />
+                  {visibleThreads.map((thread) => (
+                    <NavItem
+                      key={thread.id}
+                      label={getThreadLabel(
+                        thread,
+                        viewerId,
+                        participantsState,
+                      )}
+                      active={thread.id === activeThread.id}
+                      icon={
+                        thread.isGroup ? (
+                          <LuUsers className="h-4 w-4" />
+                        ) : (
+                          <LuUserRound className="h-4 w-4" />
+                        )
+                      }
+                      onClick={() => setActiveChatId(thread.id)}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -153,8 +380,14 @@ export function ChatDashboard() {
                   Channels
                 </p>
                 <div className="space-y-1">
-                  <NavItem label="general" icon={<LuHash className="h-4 w-4" />} />
-                  <NavItem label="Add channel" icon={<LuPlus className="h-4 w-4" />} />
+                  <NavItem
+                    label="general"
+                    icon={<LuHash className="h-4 w-4" />}
+                  />
+                  <NavItem
+                    label="Add channel"
+                    icon={<LuPlus className="h-4 w-4" />}
+                  />
                 </div>
               </div>
 
@@ -169,7 +402,10 @@ export function ChatDashboard() {
                     label="Google Calendar"
                     icon={<LuCalendarDays className="h-4 w-4" />}
                   />
-                  <NavItem label="Add integration" icon={<LuPuzzle className="h-4 w-4" />} />
+                  <NavItem
+                    label="Add integration"
+                    icon={<LuPuzzle className="h-4 w-4" />}
+                  />
                 </div>
               </div>
             </ScrollArea.Viewport>
@@ -187,7 +423,7 @@ export function ChatDashboard() {
                   JM
                 </Avatar.Fallback>
               </Avatar.Root>
-              <p className="truncate text-sm text-zinc-700">{name}</p>
+              <p className="truncate text-sm text-zinc-700">{account.name}</p>
             </div>
             <button type="button" className="text-zinc-400 hover:text-zinc-700">
               <LuSettings2 className="h-4 w-4" />
@@ -227,7 +463,16 @@ export function ChatDashboard() {
                   <LuSquareChevronRight className="h-5 w-5" />
                 </button>
               </div>
-              <p className="truncate text-sm font-medium text-zinc-800">{accountEmail}</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-zinc-800">
+                  {getThreadLabel(activeThread, viewerId, participantsState)}
+                </p>
+                <p className="truncate text-xs text-zinc-500">
+                  {activeThread.isGroup
+                    ? "Group conversation"
+                    : "Direct message"}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3 text-zinc-400">
               <button type="button" className="hover:text-zinc-700">
@@ -243,20 +488,40 @@ export function ChatDashboard() {
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* Scrollable message area that renders sent messages as right-aligned bubbles. */}
+            {/* Scrollable message area with sender-aware left/right message bubbles. */}
             <div className="flex-1 overflow-y-auto bg-zinc-100/35 px-4 py-4 sm:px-6">
               <div className="mx-auto flex h-full w-full max-w-4xl flex-col justify-end gap-3">
-                {messages.length === 0 ? (
-                  <p className="text-sm text-zinc-400">Send a message to start the conversation.</p>
+                {activeMessages.length === 0 ? (
+                  <p className="text-sm text-zinc-400">
+                    Send a message to start the conversation.
+                  </p>
                 ) : (
-                  messages.map((message, index) => (
-                    <div
-                      key={`${message}-${index}`}
-                      className="max-w-[80%] self-end rounded-2xl bg-violet-200 px-4 py-2 text-sm text-violet-700 shadow-sm"
-                    >
-                      {message}
-                    </div>
-                  ))
+                  activeMessages.map((message) => {
+                    const sender = participantsState[message.senderId];
+                    const isCurrentSender = message.senderId === viewerId;
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`max-w-[80%] ${isCurrentSender ? "self-end" : "self-start"}`}
+                      >
+                        {activeThread.isGroup && (
+                          <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                            {sender.name}
+                          </p>
+                        )}
+                        <div
+                          className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                            isCurrentSender
+                              ? "bg-violet-200 text-violet-700"
+                              : "bg-white text-zinc-700"
+                          }`}
+                        >
+                          {message.text}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -266,25 +531,39 @@ export function ChatDashboard() {
                 className="mx-auto max-w-4xl rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  handleSendMessage();
+                  void handleSendMessage();
                 }}
               >
                 <input
                   aria-label="Message input"
-                  placeholder="Message Jane"
-                  value={messageInput}
-                  onChange={(event) => setMessageInput(event.target.value)}
+                  placeholder={`Message ${getThreadLabel(activeThread, viewerId, participantsState)}`}
+                  value={activeDraft}
+                  onChange={(event) =>
+                    setDraftByChatId((previousDraftByChatId) => ({
+                      ...previousDraftByChatId,
+                      [activeThread.id]: event.target.value,
+                    }))
+                  }
                   className="w-full border-none bg-transparent px-2 py-1 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none"
                 />
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1">
-                    <ComposerAction label="Add" icon={<LuPlus className="h-4 w-4" />} />
+                    <ComposerAction
+                      label="Add"
+                      icon={<LuPlus className="h-4 w-4" />}
+                    />
                     <ComposerAction
                       label="Voice input"
                       icon={<LuAudioLines className="h-4 w-4" />}
                     />
-                    <ComposerAction label="Schedule" icon={<LuClock3 className="h-4 w-4" />} />
-                    <ComposerAction label="Mention" icon={<LuAtSign className="h-4 w-4" />} />
+                    <ComposerAction
+                      label="Schedule"
+                      icon={<LuClock3 className="h-4 w-4" />}
+                    />
+                    <ComposerAction
+                      label="Mention"
+                      icon={<LuAtSign className="h-4 w-4" />}
+                    />
                   </div>
                   <button
                     type="submit"
@@ -316,20 +595,25 @@ export function ChatDashboard() {
           </div>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              2 Members
+              {activeMembers.length} Members
             </p>
-            <button type="button" className="text-xs text-zinc-500 hover:text-zinc-700">
+            <button
+              type="button"
+              className="text-xs text-zinc-500 hover:text-zinc-700"
+            >
               View
             </button>
           </div>
 
           <div className="space-y-1">
-            <MemberItem name="Jane Smith" detail="Owner" accent="bg-indigo-200" />
-            <MemberItem
-              name={accountEmail}
-              detail="You"
-              accent="bg-violet-200"
-            />
+            {activeMembers.map((member) => (
+              <MemberItem
+                key={member.id}
+                name={member.name}
+                detail={member.id === viewerId ? "You" : member.detail}
+                accent={member.accent}
+              />
+            ))}
           </div>
 
           <Separator.Root className="my-5 h-px bg-zinc-200" />
