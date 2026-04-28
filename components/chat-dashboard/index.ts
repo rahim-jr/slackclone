@@ -1,3 +1,9 @@
+export { ChatDashboard } from "./chat-dashboard";
+export { ChatComposer } from "./chat-composer";
+export { ChatDetailsPanel } from "./chat-details-panel";
+export { ChatHeader } from "./chat-header";
+export { ChatMessageList } from "./chat-message-list";
+export { ChatSidebar } from "./chat-sidebar";
 export { ComposerAction } from "./composer-action";
 export { getDicebearAvatar } from "./dicebear-avatar";
 export { MemberItem } from "./member-item";

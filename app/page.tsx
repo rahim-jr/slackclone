@@ -1,5 +1,10 @@
-import { ChatDashboard } from "@/components/chat-dashboard/chat-dashboard";
+import { Suspense } from "react";
+import { ChatDashboard } from "@/components/chat-dashboard";
 
 export default function Home() {
-  return <ChatDashboard />;
+  return (
+    <Suspense fallback={null}>
+      <ChatDashboard />
+    </Suspense>
+  );
 }

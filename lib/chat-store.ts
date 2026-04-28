@@ -1,35 +1,10 @@
-export type ParticipantId = "jane" | "jhon";
-export type ViewerRouteId = "1" | "2";
-
-export type Participant = {
-  id: ParticipantId;
-  name: string;
-  detail: string;
-  accent: string;
-};
-
-export type ChatThread = {
-  id: string;
-  label: string;
-  isGroup: boolean;
-  memberIds: ParticipantId[];
-};
-
-export type ChatMessage = {
-  id: string;
-  chatId: string;
-  senderId: ParticipantId;
-  text: string;
-  createdAt: number;
-};
-
-type Snapshot = {
-  viewerId: ParticipantId;
-  participants: Record<ParticipantId, Participant>;
-  threads: ChatThread[];
-  messagesByChatId: Record<string, ChatMessage[]>;
-  defaultChatId: string;
-};
+import type {
+  ChatMessage,
+  ChatSnapshot,
+  ChatThread,
+  Participant,
+  ParticipantId,
+} from "@/lib/chat-types";
 
 const participants: Record<ParticipantId, Participant> = {
   jane: {
@@ -110,7 +85,7 @@ export function viewerIdFromRouteId(routeId: string): ParticipantId | null {
   return null;
 }
 
-export function getSnapshotForViewer(viewerId: ParticipantId): Snapshot {
+export function getSnapshotForViewer(viewerId: ParticipantId): ChatSnapshot {
   const defaultChatId = "chat-direct";
 
   return {

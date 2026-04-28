@@ -3,8 +3,8 @@ import {
   appendThreadMessage,
   getThread,
   getThreadMessages,
-  type ParticipantId,
 } from "@/lib/chat-store";
+import type { ParticipantId } from "@/lib/chat-types";
 
 type Context = {
   params: Promise<{ chatId: string }>;
